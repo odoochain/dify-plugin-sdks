@@ -13,7 +13,7 @@ from dify_plugin.entities.model.llm import (
 from dify_plugin.entities.model.message import AssistantPromptMessage, PromptMessage, PromptMessageTool
 
 
-class LLMInvocation(BackwardsInvocation[LLMResultChunk]):
+class LLMInvocation(BackwardsInvocation[LLMResultChunk | LLMResult]):
     @overload
     def invoke(
         self,
@@ -86,22 +86,11 @@ class LLMInvocation(BackwardsInvocation[LLMResultChunk]):
 
         for llm_result in self._backwards_invoke(
             InvokeType.LLM,
-            LLMResultChunk,
+            LLMResult,
             data,
         ):
-            if isinstance(llm_result.delta.message.content, str):
-                result.message.content += llm_result.delta.message.content
-
-            if llm_result.delta.usage:
-                result.usage.prompt_tokens += llm_result.delta.usage.prompt_tokens
-                result.usage.completion_tokens += llm_result.delta.usage.completion_tokens
-                result.usage.total_tokens += llm_result.delta.usage.total_tokens
-
-                result.usage.completion_price = llm_result.delta.usage.completion_price
-                result.usage.prompt_price = llm_result.delta.usage.prompt_price
-                result.usage.total_price = llm_result.delta.usage.total_price
-                result.usage.currency = llm_result.delta.usage.currency
-                result.usage.latency = llm_result.delta.usage.latency
+            llm_result = cast(LLMResult, llm_result)
+            result = llm_result
 
         return result
 
