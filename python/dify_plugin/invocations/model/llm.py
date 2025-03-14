@@ -7,13 +7,12 @@ from dify_plugin.entities.model.llm import (
     LLMModelConfig,
     LLMResult,
     LLMResultChunk,
-    LLMUsage,
     SummaryResult,
 )
-from dify_plugin.entities.model.message import AssistantPromptMessage, PromptMessage, PromptMessageTool
+from dify_plugin.entities.model.message import PromptMessage, PromptMessageTool
 
 
-class LLMInvocation(BackwardsInvocation[LLMResultChunk | LLMResult]):
+class LLMInvocation(BackwardsInvocation[LLMResultChunk]):
     @overload
     def invoke(
         self,
@@ -66,33 +65,13 @@ class LLMInvocation(BackwardsInvocation[LLMResultChunk | LLMResult]):
             "stream": stream,
         }
 
-        if stream:
-            response = self._backwards_invoke(
-                InvokeType.LLM,
-                LLMResultChunk,
-                data,
-            )
-            response = cast(Generator[LLMResultChunk, None, None], response)
-            return response
-
-        result = LLMResult(
-            model=model_config.model,
-            prompt_messages=prompt_messages,
-            message=AssistantPromptMessage(content=""),
-            usage=LLMUsage.empty_usage(),
-        )
-
-        assert isinstance(result.message.content, str)
-
-        for llm_result in self._backwards_invoke(
+        response = self._backwards_invoke(
             InvokeType.LLM,
-            LLMResult,
+            LLMResultChunk,
             data,
-        ):
-            llm_result = cast(LLMResult, llm_result)
-            result = llm_result
-
-        return result
+        )
+        response = cast(Generator[LLMResultChunk, None, None], response)
+        return response
 
 
 class SummaryInvocation(BackwardsInvocation[SummaryResult]):
