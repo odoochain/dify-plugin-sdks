@@ -102,7 +102,6 @@ class AudioPromptMessageContent(MultiModalPromptMessageContent):
 
 
 class ImagePromptMessageContent(MultiModalPromptMessageContent):
-
     class DETAIL(Enum):
         LOW = "low"
         HIGH = "high"
@@ -143,7 +142,9 @@ class PromptMessage(BaseModel):
         else:
             result = []
             for content in value or []:
-                if content.get("type") == PromptMessageContentType.TEXT.value:
+                if isinstance(content, PromptMessageContent):
+                    result.append(content)
+                elif content.get("type") == PromptMessageContentType.TEXT.value:
                     result.append(TextPromptMessageContent(**content))
                 elif content.get("type") == PromptMessageContentType.IMAGE.value:
                     result.append(ImagePromptMessageContent(**content))
