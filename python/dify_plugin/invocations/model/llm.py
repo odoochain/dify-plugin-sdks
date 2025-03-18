@@ -7,9 +7,10 @@ from dify_plugin.entities.model.llm import (
     LLMModelConfig,
     LLMResult,
     LLMResultChunk,
+    LLMUsage,
     SummaryResult,
 )
-from dify_plugin.entities.model.message import PromptMessage, PromptMessageTool
+from dify_plugin.entities.model.message import AssistantPromptMessage, PromptMessage, PromptMessageTool
 
 
 class LLMInvocation(BackwardsInvocation[LLMResultChunk]):
@@ -65,13 +66,45 @@ class LLMInvocation(BackwardsInvocation[LLMResultChunk]):
             "stream": stream,
         }
 
-        response = self._backwards_invoke(
+        if stream:
+            response = self._backwards_invoke(
+                InvokeType.LLM,
+                LLMResultChunk,
+                data,
+            )
+            response = cast(Generator[LLMResultChunk, None, None], response)
+            return response
+
+        result = LLMResult(
+            model=model_config.model,
+            prompt_messages=prompt_messages,
+            message=AssistantPromptMessage(content=""),
+            usage=LLMUsage.empty_usage(),
+        )
+
+        assert isinstance(result.message.content, str)
+
+        for llm_result in self._backwards_invoke(
             InvokeType.LLM,
             LLMResultChunk,
             data,
-        )
-        response = cast(Generator[LLMResultChunk, None, None], response)
-        return response
+        ):
+            if isinstance(llm_result.delta.message.content, str):
+                result.message.content += llm_result.delta.message.content
+            if len(llm_result.delta.message.tool_calls) > 0:
+                result.message.tool_calls = llm_result.delta.message.tool_calls
+            if llm_result.delta.usage:
+                result.usage.prompt_tokens += llm_result.delta.usage.prompt_tokens
+                result.usage.completion_tokens += llm_result.delta.usage.completion_tokens
+                result.usage.total_tokens += llm_result.delta.usage.total_tokens
+
+                result.usage.completion_price = llm_result.delta.usage.completion_price
+                result.usage.prompt_price = llm_result.delta.usage.prompt_price
+                result.usage.total_price = llm_result.delta.usage.total_price
+                result.usage.currency = llm_result.delta.usage.currency
+                result.usage.latency = llm_result.delta.usage.latency
+
+        return result
 
 
 class SummaryInvocation(BackwardsInvocation[SummaryResult]):
